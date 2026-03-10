@@ -80,7 +80,6 @@ font-size:20px;
 
 const csvURL="https://docs.google.com/spreadsheets/d/e/2PACX-1vS8L9PIlsNhYTVMiftZjxd2IXXAzjd2tEcdq4uNgWruD5aDv1vX6VOh_F5hAlYdwxvshlAVgxIf-zv9/pub?output=csv";
 
-let events=[];
 let mainEvent=null;
 let secondaryEvents=[];
 
@@ -93,24 +92,30 @@ return new Date(`${year}-${month}-${day}T${timeStr}`);
 
 function parseCSV(text){
 
-let lines=text.trim().split("\n");
+let rows=text.trim().split("\n").slice(1);
 
-for(let i=1;i<lines.length;i++){
+let parsed=[];
 
-let cols=lines[i].split(",");
+rows.forEach(row=>{
+
+let cols=row.split(",");
+
+if(cols.length<4) return;
 
 let type=cols[0].trim();
 let name=cols[1].trim();
 let date=cols[2].trim();
 let time=cols[3].trim();
 
-events.push({
+parsed.push({
 type:type,
 name:name,
 date:parseDate(date,time)
 });
 
-}
+});
+
+return parsed;
 
 }
 
@@ -120,8 +125,10 @@ fetch(csvURL)
 .then(res=>res.text())
 .then(data=>{
 
-parseCSV(data);
-prepareEvents();
+let events=parseCSV(data);
+
+prepareEvents(events);
+
 render();
 
 })
@@ -134,15 +141,15 @@ console.error(err);
 
 }
 
-function prepareEvents(){
+function prepareEvents(events){
 
 let now=new Date();
 
-let futureEvents=events.filter(e=>e.date>now);
+let future=events.filter(e=>e.date>now);
 
-mainEvent=futureEvents.find(e=>e.type==="Main");
+mainEvent=future.find(e=>e.type==="Main");
 
-secondaryEvents=futureEvents
+secondaryEvents=future
 .filter(e=>e.type==="Secondary")
 .sort((a,b)=>a.date-b.date)
 .slice(0,3);
@@ -201,9 +208,7 @@ setInterval(updateCountdowns,1000);
 function updateCountdowns(){
 
 if(mainEvent){
-
 document.getElementById("mainCountdown").innerText=getCountdown(mainEvent.date);
-
 }
 
 secondaryEvents.forEach((e,i)=>{
