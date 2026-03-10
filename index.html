@@ -81,6 +81,8 @@ font-size:20px;
 const csvURL="https://docs.google.com/spreadsheets/d/e/2PACX-1vS8L9PIlsNhYTVMiftZjxd2IXXAzjd2tEcdq4uNgWruD5aDv1vX6VOh_F5hAlYdwxvshlAVgxIf-zv9/pub?output=csv";
 
 let events=[];
+let mainEvent=null;
+let secondaryEvents=[];
 
 function parseDate(dateStr,timeStr){
 
@@ -97,14 +99,14 @@ for(let i=1;i<lines.length;i++){
 
 let cols=lines[i].split(",");
 
-let type=cols[0];
-let name=cols[1];
-let date=cols[2];
-let time=cols[3];
+let type=cols[0].trim();
+let name=cols[1].trim();
+let date=cols[2].trim();
+let time=cols[3].trim();
 
 events.push({
-type:type.trim(),
-name:name.trim(),
+type:type,
+name:name,
 date:parseDate(date,time)
 });
 
@@ -119,6 +121,7 @@ fetch(csvURL)
 .then(data=>{
 
 parseCSV(data);
+prepareEvents();
 render();
 
 })
@@ -131,12 +134,27 @@ console.error(err);
 
 }
 
+function prepareEvents(){
+
+let now=new Date();
+
+let futureEvents=events.filter(e=>e.date>now);
+
+mainEvent=futureEvents.find(e=>e.type==="Main");
+
+secondaryEvents=futureEvents
+.filter(e=>e.type==="Secondary")
+.sort((a,b)=>a.date-b.date)
+.slice(0,3);
+
+}
+
 function getCountdown(target){
 
 let now=new Date();
 let diff=target-now;
 
-if(diff<=0) return null;
+if(diff<=0) return "Started";
 
 let days=Math.floor(diff/(1000*60*60*24));
 let hours=Math.floor((diff/(1000*60*60))%24);
@@ -149,22 +167,11 @@ return `${days}d ${hours}h ${minutes}m ${seconds}s`;
 
 function render(){
 
-let now=new Date();
-
-let future=events.filter(e=>e.date>now);
-
-let main=future.find(e=>e.type==="Main");
-
-let secondary=future
-.filter(e=>e.type==="Secondary")
-.sort((a,b)=>a.date-b.date)
-.slice(0,3);
-
-if(main){
+if(mainEvent){
 
 document.getElementById("mainEvent").innerHTML=`
 <div class="mainCard">
-<div class="mainTitle">${main.name}</div>
+<div class="mainTitle">${mainEvent.name}</div>
 <div class="mainCountdown" id="mainCountdown"></div>
 </div>
 `;
@@ -173,7 +180,7 @@ document.getElementById("mainEvent").innerHTML=`
 
 let html=`<div class="sectionTitle">Upcoming Events</div>`;
 
-secondary.forEach((e,i)=>{
+secondaryEvents.forEach((e,i)=>{
 
 html+=`
 <div class="secondaryCard">
@@ -186,26 +193,26 @@ html+=`
 
 document.getElementById("secondaryEvents").innerHTML=html;
 
-setInterval(()=>updateCountdown(main,secondary),1000);
+updateCountdowns();
+setInterval(updateCountdowns,1000);
 
 }
 
-function updateCountdown(main,secondary){
+function updateCountdowns(){
 
-if(main){
+if(mainEvent){
 
-let cd=getCountdown(main.date);
-document.getElementById("mainCountdown").innerText=cd || "Started";
+document.getElementById("mainCountdown").innerText=getCountdown(mainEvent.date);
 
 }
 
-secondary.forEach((e,i)=>{
-
-let cd=getCountdown(e.date);
+secondaryEvents.forEach((e,i)=>{
 
 let el=document.getElementById(`sec${i}`);
 
-if(el) el.innerText=cd || "Started";
+if(el){
+el.innerText=getCountdown(e.date);
+}
 
 });
 
